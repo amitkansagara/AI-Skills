@@ -1,0 +1,16 @@
+{
+  "name": "ai-skills",
+  "description": "Team skills for Foycom and related work.",
+  "owner": {
+    "name": "amitkansagara",
+    "url": "https://github.com/amitkansagara"
+  },
+  "plugins": [
+    {
+      "name": "ai-skills",
+      "description": "Foycom development, conversion and server deployment skills.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}
