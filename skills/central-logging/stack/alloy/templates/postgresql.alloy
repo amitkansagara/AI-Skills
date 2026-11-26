@@ -1,0 +1,33 @@
+// PostgreSQL server log (Debian/Ubuntu: /var/log/postgresql/postgresql-<ver>-main.log, default prefix
+// "%m [%p] %q%u@%d "). The glob skips rotated .1/.gz files.
+local.file_match "postgresql" {
+  path_targets = [{
+    __path__ = coalesce(sys.env("PG_LOG"), "/var/log/postgresql/postgresql-*-main.log"),
+    service  = "postgresql",
+  }]
+}
+
+loki.source.file "postgresql" {
+  targets    = local.file_match.postgresql.targets
+  forward_to = [loki.process.postgresql.receiver]
+}
+
+loki.process "postgresql" {
+  forward_to = [lib.ship.central.receiver]
+
+  // Continuation lines (tab-indented query text) belong to the entry above.
+  stage.multiline {
+    firstline     = `^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}`
+    max_wait_time = "3s"
+  }
+  stage.regex {
+    expression = `\b(?P<level>DEBUG\d?|INFO|NOTICE|LOG|WARNING|ERROR|FATAL|PANIC):  `
+  }
+  stage.template {
+    source   = "level"
+    template = `{{ if or (eq .Value "LOG") (eq .Value "INFO") (eq .Value "NOTICE") }}info{{ else if eq .Value "WARNING" }}warning{{ else if eq .Value "ERROR" }}error{{ else if or (eq .Value "FATAL") (eq .Value "PANIC") }}critical{{ else }}debug{{ end }}`
+  }
+  stage.labels {
+    values = { level = "" }
+  }
+}

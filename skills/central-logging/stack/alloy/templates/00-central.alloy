@@ -1,0 +1,16 @@
+// One per server. Values come from /etc/default/alloy (see alloy.env.example).
+import.file "lib" {
+  filename = "/etc/alloy/lib/central.alloy"
+}
+
+lib.ship "central" {
+  url           = sys.env("LOKI_URL")
+  username      = sys.env("LOKI_USER")
+  password_file = "/etc/alloy/loki-password"
+  labels = {
+    project     = sys.env("PROJECT"),
+    environment = sys.env("ENVIRONMENT"),
+    application = sys.env("APPLICATION"),
+    server      = sys.env("SERVER"),
+  }
+}

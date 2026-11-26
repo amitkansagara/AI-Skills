@@ -1,0 +1,68 @@
+// Shared module for every server: redaction + the authenticated push to the central Loki.
+// Installed as /etc/alloy/lib/central.alloy. Instantiated once per server in conf.d/00-central.alloy.
+
+// Masks secrets and personal data before anything leaves the server. Best effort (regex):
+// names, phone numbers and mail subjects are not caught. Only the captured group is replaced.
+declare "redact" {
+  argument "forward_to" { }
+
+  loki.process "redact" {
+    forward_to = argument.forward_to.value
+
+    // loki.source.file adds the file path as a label; "service" already says which log it is.
+    stage.label_drop {
+      values = ["filename"]
+    }
+
+    // Authorization header values first (before the key rule eats the scheme word)
+    stage.replace {
+      expression = `(?i)\b(?:bearer|basic)\s+([A-Za-z0-9._~+/=-]{8,})`
+      replace    = "***"
+    }
+    // key=value / key: value / "key": "value" for secret-looking keys
+    stage.replace {
+      expression = `(?i)(?:password|passwd|pwd|secret|token|api[_-]?key|apikey|session_id|csrf_token|authorization)["']?\s*[:=]\s*["']?([^\s"',&;)]+)`
+      replace    = "***"
+    }
+    // OpenAI/OpenRouter style keys anywhere in the line
+    stage.replace {
+      expression = `\bsk-([A-Za-z0-9_-]{16,})`
+      replace    = "***"
+    }
+    // OAuth authorization codes in URLs
+    stage.replace {
+      expression = `[?&]code=([^&\s"]+)`
+      replace    = "***"
+    }
+    // e-mail local part (domain kept for debugging)
+    stage.replace {
+      expression = `([A-Za-z0-9._%+-]+)@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}`
+      replace    = "***"
+    }
+  }
+
+  export "receiver" { value = loki.process.redact.receiver }
+}
+
+// Redact, then push with this server's labels and credential.
+declare "ship" {
+  argument "url" { }
+  argument "username" { }
+  argument "password_file" { }
+  argument "labels" { }
+
+  redact "r" { forward_to = [loki.write.central.receiver] }
+
+  loki.write "central" {
+    endpoint {
+      url = argument.url.value
+      basic_auth {
+        username      = argument.username.value
+        password_file = argument.password_file.value
+      }
+    }
+    external_labels = argument.labels.value
+  }
+
+  export "receiver" { value = redact.r.receiver }
+}

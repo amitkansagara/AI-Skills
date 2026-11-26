@@ -1,0 +1,6 @@
+.env
+secrets/
+backups/
+grafana/provisioning/datasources/project-*.yml
+grafana/provisioning/dashboards/project-*.yml
+__pycache__/

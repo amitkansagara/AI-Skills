@@ -1,0 +1,34 @@
+// Python application using the logging module, e.g. format
+// "%(asctime)s %(levelname)s %(name)s: %(message)s" -> 2026-11-26 09:52:18,123 ERROR app: ...
+// Lines that do not start with a date (tracebacks) are joined to the previous entry.
+local.file_match "python" {
+  path_targets = [{
+    __path__ = sys.env("PYTHON_LOG"),
+    service  = coalesce(sys.env("PYTHON_SERVICE"), "app"),
+  }]
+}
+
+loki.source.file "python" {
+  targets    = local.file_match.python.targets
+  forward_to = [loki.process.python.receiver]
+}
+
+loki.process "python" {
+  forward_to = [lib.ship.central.receiver]
+
+  stage.multiline {
+    firstline     = `^\[?\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}`
+    max_wait_time = "3s"
+    max_lines     = 500
+  }
+  stage.regex {
+    expression = `\b(?P<level>DEBUG|INFO|WARNING|WARN|ERROR|CRITICAL|FATAL)\b`
+  }
+  stage.template {
+    source   = "level"
+    template = `{{ $l := .Value | ToLower }}{{ if eq $l "warn" }}warning{{ else if eq $l "fatal" }}critical{{ else }}{{ $l }}{{ end }}`
+  }
+  stage.labels {
+    values = { level = "" }
+  }
+}

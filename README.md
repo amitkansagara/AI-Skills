@@ -6,8 +6,11 @@ Team skills for AI coding agents. Each skill is one folder under `skills/` holdi
 | Skill | What it covers |
 | --- | --- |
 | [`foycom`](skills/foycom/SKILL.md) | Foycom: developing in Odoo, the Odoo-to-Foycom conversion, version mapping (Foycom = Odoo − 10), and the server deployment flow (pull in `/opt/odoo` → convert → upgrade/restart) |
+| [`central-logging`](skills/central-logging/SKILL.md) | Central logging for any server or project: Grafana + Loki + Alloy on Docker Compose, tenant per project, onboarding servers, LAN mode before DNS exists (dashboard over an SSH tunnel), verification and gotchas. Ships the full stack in `skills/central-logging/stack/` |
 
 The repo is also a **Claude Code plugin marketplace**, through `.claude-plugin/`.
+
+The examples below use `foycom`; for another skill, replace the folder name (e.g. `central-logging`).
 
 ---
 
@@ -29,6 +32,7 @@ later, run `/plugin marketplace update ai-skills`.
 git clone git@github.com:amitkansagara/AI-Skills.git ~/AI-Skills
 # for you, in every project:
 ln -s ~/AI-Skills/skills/foycom ~/.claude/skills/foycom
+ln -s ~/AI-Skills/skills/central-logging ~/.claude/skills/central-logging
 # or for one project only (commit it to share with the team):
 mkdir -p .claude/skills && cp -r ~/AI-Skills/skills/foycom .claude/skills/
 ```

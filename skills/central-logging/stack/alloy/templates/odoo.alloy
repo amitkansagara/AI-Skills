@@ -1,0 +1,40 @@
+// Odoo / Foycom server log. Odoo writes UTC timestamps:
+// 2026-11-22 00:00:22,333 1385130 INFO dbname module.name: message
+local.file_match "odoo" {
+  // Current file only: a glob such as *.log* would re-read rotated copies.
+  path_targets = [{
+    __path__ = coalesce(sys.env("ODOO_LOG"), "/var/log/odoo/odoo-server.log"),
+    service  = coalesce(sys.env("ODOO_SERVICE"), "odoo-server"),
+  }]
+}
+
+loki.source.file "odoo" {
+  targets    = local.file_match.odoo.targets
+  forward_to = [loki.process.odoo.receiver]
+}
+
+loki.process "odoo" {
+  forward_to = [lib.ship.central.receiver]
+
+  // Tracebacks and multi-line messages stay one entry.
+  stage.multiline {
+    firstline     = `^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} `
+    max_wait_time = "3s"
+    max_lines     = 500
+  }
+  stage.regex {
+    expression = `^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) \d+ (?P<level>[A-Z]+) `
+  }
+  stage.timestamp {
+    source   = "ts"
+    format   = "2006-01-02 15:04:05,000"
+    location = "UTC"
+  }
+  stage.template {
+    source   = "level"
+    template = `{{ .Value | ToLower }}`
+  }
+  stage.labels {
+    values = { level = "" }
+  }
+}

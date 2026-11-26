@@ -1,0 +1,27 @@
+// Any text log. Copy this file once per log, rename the "generic" labels (they must be unique
+// across conf.d) and set the path and service. Level is picked up if a usual keyword appears.
+local.file_match "generic" {
+  path_targets = [{
+    __path__ = sys.env("GENERIC_LOG"),
+    service  = coalesce(sys.env("GENERIC_SERVICE"), "app"),
+  }]
+}
+
+loki.source.file "generic" {
+  targets    = local.file_match.generic.targets
+  forward_to = [loki.process.generic.receiver]
+}
+
+loki.process "generic" {
+  forward_to = [lib.ship.central.receiver]
+  stage.regex {
+    expression = `(?i)\b(?P<level>debug|info|warn|warning|error|critical|fatal)\b`
+  }
+  stage.template {
+    source   = "level"
+    template = `{{ $l := .Value | ToLower }}{{ if eq $l "warn" }}warning{{ else if eq $l "fatal" }}critical{{ else }}{{ $l }}{{ end }}`
+  }
+  stage.labels {
+    values = { level = "" }
+  }
+}

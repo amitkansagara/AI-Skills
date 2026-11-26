@@ -1,0 +1,108 @@
+# Platform alerts (org 1). Shown in Alerting > Alert rules; no contact point yet.
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: central-logging
+    folder: Platform
+    interval: 1m
+    rules:
+      - uid: cl-heartbeat
+        title: "Healthcheck heartbeat missing (logging host or timer down)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 900, to: 0}
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({service="healthcheck"}[15m]))'
+              queryType: instant
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model: {type: reduce, expression: A, reducer: last, refId: B}
+          - refId: C
+            datasourceUid: __expr__
+            model: {type: threshold, expression: B, refId: C, conditions: [{evaluator: {type: lt, params: [1]}}]}
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 0s
+      - uid: cl-disk
+        title: "Logging host root disk above 80%"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 900, to: 0}
+            datasourceUid: loki
+            model:
+              expr: 'max(last_over_time({service="healthcheck"} | json v="disk_used_pct" | unwrap v [15m]))'
+              queryType: instant
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model: {type: reduce, expression: A, reducer: last, refId: B}
+          - refId: C
+            datasourceUid: __expr__
+            model: {type: threshold, expression: B, refId: C, conditions: [{evaluator: {type: gt, params: [80]}}]}
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+      - uid: cl-budget
+        title: "Loki data above its budget (LOKI_BUDGET_GB)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 900, to: 0}
+            datasourceUid: loki
+            model:
+              expr: 'max(last_over_time({service="healthcheck"} | json v="over_budget" | unwrap v [15m]))'
+              queryType: instant
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model: {type: reduce, expression: A, reducer: last, refId: B}
+          - refId: C
+            datasourceUid: __expr__
+            model: {type: threshold, expression: B, refId: C, conditions: [{evaluator: {type: gt, params: [0]}}]}
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+      - uid: cl-unhealthy
+        title: "A logging container is not healthy"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 900, to: 0}
+            datasourceUid: loki
+            model:
+              expr: 'max(last_over_time({service="healthcheck"} | json v="unhealthy" | unwrap v [15m]))'
+              queryType: instant
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model: {type: reduce, expression: A, reducer: last, refId: B}
+          - refId: C
+            datasourceUid: __expr__
+            model: {type: threshold, expression: B, refId: C, conditions: [{evaluator: {type: gt, params: [0]}}]}
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+      - uid: cl-silent
+        title: "A forwarder sent no logs for 60 minutes"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 900, to: 0}
+            datasourceUid: loki
+            model:
+              expr: 'max(last_over_time({service="healthcheck"} | json v="silent_servers" | unwrap v [15m]))'
+              queryType: instant
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model: {type: reduce, expression: A, reducer: last, refId: B}
+          - refId: C
+            datasourceUid: __expr__
+            model: {type: threshold, expression: B, refId: C, conditions: [{evaluator: {type: gt, params: [0]}}]}
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m

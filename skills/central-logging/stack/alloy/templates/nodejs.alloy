@@ -1,0 +1,28 @@
+// Node.js JSON logs (pino: numeric "level", winston/bunyan: string "level").
+// Plain-text Node logs: use generic.alloy instead.
+local.file_match "nodejs" {
+  path_targets = [{
+    __path__ = sys.env("NODE_LOG"),
+    service  = coalesce(sys.env("NODE_SERVICE"), "app"),
+  }]
+}
+
+loki.source.file "nodejs" {
+  targets    = local.file_match.nodejs.targets
+  forward_to = [loki.process.nodejs.receiver]
+}
+
+loki.process "nodejs" {
+  forward_to = [lib.ship.central.receiver]
+
+  stage.json {
+    expressions = { level = "level" }
+  }
+  stage.template {
+    source   = "level"
+    template = `{{ $l := .Value | ToLower }}{{ if or (eq $l "10") (eq $l "20") (eq $l "trace") }}debug{{ else if eq $l "30" }}info{{ else if or (eq $l "40") (eq $l "warn") }}warning{{ else if eq $l "50" }}error{{ else if or (eq $l "60") (eq $l "fatal") }}critical{{ else }}{{ $l }}{{ end }}`
+  }
+  stage.labels {
+    values = { level = "" }
+  }
+}

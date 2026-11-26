@@ -1,0 +1,75 @@
+# Rendered by the nginx image's envsubst at start: the GRAFANA_HOST, INGEST_HOST, ALLOW_FROM
+# and BIND_ADDR variables from .env are filled in; nginx's own $variables are left alone.
+#
+# The only published port of the stack. Loki is never reachable except through
+# the push location below.
+
+# Forwarder login is "<project>--<server>"; the tenant is the project part.
+# The client's own X-Scope-OrgID is never passed on, so a server cannot write
+# into another project's tenant.
+map $remote_user $tenant {
+    "~^(?<project>[a-z0-9]+(?:-[a-z0-9]+)*)--[a-z0-9]+(?:-[a-z0-9]+)*$" $project;
+    default "";
+}
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+# Unknown Host header: nothing here. /healthz is for the container healthcheck.
+server {
+    listen 8080 default_server;
+    location = /healthz { access_log off; return 200 "ok\n"; }
+    location / { return 404; }
+}
+
+# Log push from Alloy (through the TLS front proxy).
+server {
+    listen 8080;
+    server_name ${INGEST_HOST};
+    allow 127.0.0.1;
+    allow ${BIND_ADDR};      # the logging host itself (admin scripts)
+    allow ${ALLOW_FROM};
+    deny all;
+
+    client_max_body_size 10m;
+
+    location = /loki/api/v1/push {
+        auth_basic "logs-ingest";
+        auth_basic_user_file /etc/nginx/auth/htpasswd;
+        proxy_set_header X-Scope-OrgID $tenant;
+        proxy_set_header Authorization "";
+        proxy_pass http://loki:3100;
+    }
+
+    # No query, label, delete or admin API from outside.
+    location / { return 404; }
+}
+
+# Grafana UI (developers).
+server {
+    listen 8080;
+    server_name ${GRAFANA_HOST};
+    allow 127.0.0.1;
+    allow ${BIND_ADDR};      # the logging host itself (admin scripts)
+    allow ${ALLOW_FROM};
+    deny all;
+
+    client_max_body_size 10m;
+
+    location / {
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_pass http://grafana:3000;
+    }
+
+    # Grafana Live (live tail, streaming) uses WebSocket.
+    location /api/live/ {
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_pass http://grafana:3000;
+    }
+}

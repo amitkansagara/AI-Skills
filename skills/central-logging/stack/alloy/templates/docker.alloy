@@ -1,0 +1,37 @@
+// Docker container logs. SECURITY: reading the Docker socket gives Alloy root-equivalent
+// access to the host ("docker" group = root). Use only where an admin accepts that.
+// Alternative without the socket: run the containers with the journald log driver and
+// read them with loki.source.journal (CONTAINER_NAME becomes the service label).
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "service"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.containers.rules
+  forward_to = [loki.process.docker.receiver]
+}
+
+loki.process "docker" {
+  forward_to = [lib.ship.central.receiver]
+  stage.regex {
+    expression = `(?i)\b(?P<level>debug|info|warn|warning|error|critical|fatal)\b`
+  }
+  stage.template {
+    source   = "level"
+    template = `{{ $l := .Value | ToLower }}{{ if eq $l "warn" }}warning{{ else if eq $l "fatal" }}critical{{ else }}{{ $l }}{{ end }}`
+  }
+  stage.labels {
+    values = { level = "" }
+  }
+}

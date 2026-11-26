@@ -1,0 +1,7 @@
+[Unit]
+Description=Central logging healthcheck (disk budget, containers, silent forwarders)
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/central-logging/scripts/logctl.py healthcheck

@@ -1,0 +1,45 @@
+// Nginx access + error logs (Debian/Ubuntu default paths and "combined" format).
+// Access: 5xx = error, 4xx = warning, rest = info. Needs read access to /var/log/nginx (see ONBOARDING).
+local.file_match "nginx_access" {
+  path_targets = [{ __path__ = coalesce(sys.env("NGINX_ACCESS_LOG"), "/var/log/nginx/access.log"), service = "nginx-access" }]
+}
+local.file_match "nginx_error" {
+  path_targets = [{ __path__ = coalesce(sys.env("NGINX_ERROR_LOG"), "/var/log/nginx/error.log"), service = "nginx-error" }]
+}
+
+loki.source.file "nginx_access" {
+  targets    = local.file_match.nginx_access.targets
+  forward_to = [loki.process.nginx_access.receiver]
+}
+loki.source.file "nginx_error" {
+  targets    = local.file_match.nginx_error.targets
+  forward_to = [loki.process.nginx_error.receiver]
+}
+
+loki.process "nginx_access" {
+  forward_to = [lib.ship.central.receiver]
+  stage.regex {
+    expression = `" (?P<status>\d{3}) `
+  }
+  stage.template {
+    source   = "level"
+    template = `{{ if hasPrefix "5" .status }}error{{ else if hasPrefix "4" .status }}warning{{ else }}info{{ end }}`
+  }
+  stage.labels {
+    values = { level = "" }
+  }
+}
+
+loki.process "nginx_error" {
+  forward_to = [lib.ship.central.receiver]
+  stage.regex {
+    expression = `^\S+ \S+ \[(?P<level>\w+)\]`
+  }
+  stage.template {
+    source   = "level"
+    template = `{{ if eq .Value "warn" }}warning{{ else if or (eq .Value "crit") (eq .Value "alert") (eq .Value "emerg") }}critical{{ else if eq .Value "notice" }}info{{ else }}{{ .Value }}{{ end }}`
+  }
+  stage.labels {
+    values = { level = "" }
+  }
+}

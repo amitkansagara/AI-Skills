@@ -1,7 +1,7 @@
 {
   "name": "ai-skills",
-  "version": "1.0.0",
-  "description": "Team skills: Foycom development, Odoo-to-Foycom conversion and server deployment.",
+  "version": "1.1.0",
+  "description": "Team skills: Foycom development, Odoo-to-Foycom conversion, server deployment, and central logging (Grafana + Loki + Alloy).",
   "author": {
     "name": "amitkansagara",
     "url": "https://github.com/amitkansagara"

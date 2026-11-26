@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "ai-skills",
-      "description": "Foycom development, conversion and server deployment skills.",
+      "description": "Foycom development, conversion and server deployment, and central logging (Grafana + Loki + Alloy) skills.",
       "source": "./",
       "category": "productivity"
     }
