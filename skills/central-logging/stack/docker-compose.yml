@@ -17,7 +17,7 @@ services:
     logging: *container-logs
     deploy:
       resources:
-        limits: { cpus: "1.0", memory: 1g }
+        limits: { cpus: "1.0", memory: "${LOKI_MEM:-1g}" }
     # No published port: only the gateway and Grafana reach Loki.
 
   grafana:
@@ -62,7 +62,7 @@ services:
       retries: 3
     deploy:
       resources:
-        limits: { cpus: "0.5", memory: 768m }
+        limits: { cpus: "0.5", memory: "${GRAFANA_MEM:-768m}" }
 
   gateway:
     image: nginx:${NGINX_TAG}

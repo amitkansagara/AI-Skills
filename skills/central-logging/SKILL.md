@@ -208,7 +208,12 @@ resumes from its positions, so nothing is sent twice. Finish with `logctl.py tes
   reason. Real LAN clients keep their own IP (iptables DNAT).
 - **No shell in the Loki image,** so it has no compose healthcheck. `logctl.py healthcheck` checks
   `/ready` through the gateway. Loki answers 503 for about 15 s after a start.
-- **Grafana 13 memory:** about 500 MB at idle, so a 512m limit gets OOM-killed. Use 768m.
+- **Grafana 13 memory:** about 300–500 MB at idle, so a 512m limit gets OOM-killed. Defaults are
+  `GRAFANA_MEM=768m` and `LOKI_MEM=1g`. On a 2 GB host set `LOKI_MEM=768m`, `GRAFANA_MEM=640m` and keep
+  7-day retention; on a 10 GB disk set `LOKI_BUDGET_GB=3` and `VALVE_MIN_FREE_GB=1.5`. Raise them after
+  a resize, then `docker compose up -d`.
+- **Docker inside a Proxmox LXC** needs `features: nesting=1,keyctl=1` on the container. If
+  `docker run` fails with a permission or apparmor error, ask the admin to turn those on.
 - **The Grafana image is `grafana/grafana`;** `grafana/grafana-oss` stopped updating in 2026.
 - **Admin API calls without `X-Grafana-Org-Id`** go to the admin's last org used in the browser.
   `logctl.py` always sends it.
